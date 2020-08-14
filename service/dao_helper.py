@@ -78,23 +78,26 @@ def get_all_objects(resource_path: str, delta=None):
 
     while url is not None:
         result = make_request(url, 'get')
+        url = result.get('@odata.nextLink', None)
 
-        logging.debug(f"Got response: {json.dumps(result, indent=4, sort_keys=True)}")
+        logging.debug(f"Requested {url}, Got response: {json.dumps(result, indent=4, sort_keys=True)}")
 
         if result.get('@odata.deltaLink'):
             parsed_url = urlparse(result.get('@odata.deltaLink'))
             query = parse_qs(parsed_url.query)
             delta = query['$deltatoken'][0]
 
-        if type(result.get('value')) == list:
-            for item in result['value']:
-                item['_updated'] = delta
-                item['_id'] = item['id']
-                yield item
-        else:
-            raise ValueError(f'value object expected in response to url: {url} got {result}')
+        if (result.get('value') and isinstance(result.get('value'),list)
+            or result.get('value')==[]):
+            result = result.get('value')
+        if type(result) != list:
+            result = [result]
 
-        url = result.get('@odata.nextLink', None)
+        for item in result:
+            item['_updated'] = delta
+            item['_id'] = item['id']
+            yield item
+
 
 
 def get_object(resource_path):
